@@ -16,9 +16,9 @@
 #include "scr_spacecraft_game.h"
 
 #define MAX_NUM_BOSS_SKILL       (3)
-#define MAX_AXIS_X_ARROW    (120)
 #define SIZE_BITMAP_ENERGY_BALL_X (8)
 #define SIZE_BITMAP_ENERGY_BALL_Y (8)
+#define SC_ENERGY_BALL_SPEED_X   (3)     // px per tick
 #define SIZE_BITMAP_LASER_X (120)
 #define SIZE_BITMAP_LASER_Y (3)
 

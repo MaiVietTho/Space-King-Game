@@ -58,6 +58,12 @@ void sc_game_frame_display() {
 }
 
 void sc_game_spacecraft_display() {
+	static uint8_t blink_frame = 0;
+	blink_frame++;
+	if (is_invincible && (blink_frame & 0x02)) {
+		return;
+	}
+
 	if (spacecraft.visible == WHITE) {
 		view_render.drawBitmap(	spacecraft.x, \
 								spacecraft.y, \
@@ -95,7 +101,7 @@ void sc_game_meteoroid_display() {
 }
 
 void sc_game_bang_display() {
-	for (uint8_t i = 0; i < TOTAL_ENEMY; i++) {
+	for (uint8_t i = 0; i < NUM_BANG; i++) {
 		if (bang[i].visible == WHITE) {
 			if (bang[i].action_image == 1) {
 				view_render.drawBitmap(	bang[i].x, \
@@ -350,7 +356,8 @@ static void scGameSpacecraftRoundSetup(uint8_t round) {
 		task_post_pure_msg(SC_GAME_ARROW_ENEMY_ID, SC_GAME_ARROW_ENEMY_SHOOT);
 		task_post_pure_msg(SC_GAME_ENEMY_ID, SC_GAME_ENEMY_SETUP_MOVE_Y);
 		task_post_pure_msg(SC_GAME_ENEMY_ID, SC_GAME_ENEMY_RANDOM_MOVE_Y);
-		task_post_pure_msg(SC_GAME_ENEMY_ID, SC_GAME_ENEMY_MOVE_Y);
+		timer_set(SC_GAME_ARROW_ENEMY_ID, SC_GAME_ARROW_ENEMY_SHOOT, SC_GAME_ENEMY_SHOOT_INTERVAL, TIMER_PERIODIC);
+		timer_set(SC_GAME_ENEMY_ID, SC_GAME_ENEMY_RANDOM_MOVE_Y, SC_GAME_ENEMY_SPAWN_INTERVAL, TIMER_PERIODIC);
 		timer_set(SC_GAME_GIFT_ID, SC_GAME_GIFT_RANDOM_FOR_ENEMY, SC_GAME_ENEMY_GIFT_SPAWN_INTERVAL, TIMER_ONE_SHOT);
 	} break;
 
@@ -360,7 +367,8 @@ static void scGameSpacecraftRoundSetup(uint8_t round) {
 		task_post_pure_msg(SC_GAME_ARROW_ENEMY_ID, SC_GAME_ARROW_ENEMY_SHOOT);
 		task_post_pure_msg(SC_GAME_ENEMY_ID, SC_GAME_ENEMY_SETUP_MOVE_Y);
 		task_post_pure_msg(SC_GAME_ENEMY_ID, SC_GAME_ENEMY_RANDOM_MOVE_ZIGZAG_Y);
-		task_post_pure_msg(SC_GAME_ENEMY_ID, SC_GAME_ENEMY_MOVE_ZIGZAG_Y);
+		timer_set(SC_GAME_ARROW_ENEMY_ID, SC_GAME_ARROW_ENEMY_SHOOT, SC_GAME_ENEMY_SHOOT_INTERVAL, TIMER_PERIODIC);
+		timer_set(SC_GAME_ENEMY_ID, SC_GAME_ENEMY_RANDOM_MOVE_ZIGZAG_Y, SC_GAME_ENEMY_SPAWN_INTERVAL, TIMER_PERIODIC);
 		timer_set(SC_GAME_GIFT_ID, SC_GAME_GIFT_RANDOM_FOR_ENEMY, SC_GAME_ENEMY_GIFT_SPAWN_INTERVAL, TIMER_ONE_SHOT);
 	} break;
 
@@ -368,7 +376,7 @@ static void scGameSpacecraftRoundSetup(uint8_t round) {
 		APP_DBG("ROUND 4\n");
 		task_post_pure_msg(SC_GAME_SCREEN_ID, SC_GAME_SETUP_COMMOM);
 		task_post_pure_msg(SC_GAME_METEOROID_ID, SC_GAME_METEOROID_SETUP);
-		timer_set(SC_GAME_METEOROID_ID, SC_GAME_METEOROID_RANDOM, SC_GAME_METEOROID_SPAWN_INTERVAL, TIMER_ONE_SHOT);
+		timer_set(SC_GAME_METEOROID_ID, SC_GAME_METEOROID_RANDOM, SC_GAME_METEOROID_SPAWN_INTERVAL, TIMER_PERIODIC);
 		timer_set(SC_GAME_GIFT_ID, SC_GAME_GIFT_RANDOM_FOR_METEOROID, SC_GAME_METEOROID_GIFT_SPAWN_INTERVAL, TIMER_ONE_SHOT);
 	} break;
 
@@ -377,7 +385,6 @@ static void scGameSpacecraftRoundSetup(uint8_t round) {
 		task_post_pure_msg(SC_GAME_SCREEN_ID, SC_GAME_SETUP_COMMOM);
 		task_post_pure_msg(SC_GAME_BOSS_ID, SC_GAME_BOSS_SETUP);
 		task_post_pure_msg(SC_GAME_BOSS_SKILL_ID, SC_GAME_BOSS_SKILL_SETUP);
-		task_post_pure_msg(SC_GAME_BOSS_SKILL_ID, SC_GAME_BOSS_SKILL_MOVE_ENERGY_BALL);
 		timer_set(SC_GAME_BOSS_SKILL_ID, SC_GAME_BOSS_SKILL_SHOOT_ENERGY_BALL, SC_GAME_ENERGY_BALL_SHOOT_INTERVAL, TIMER_ONE_SHOT);
 		timer_set(SC_GAME_BOSS_SKILL_ID, SC_GAME_BOSS_SKILL_SHOOT_LASER, SC_GAME_LASER_SHOOT_INTERVAL, TIMER_ONE_SHOT);
 	} break;
@@ -386,11 +393,10 @@ static void scGameSpacecraftRoundSetup(uint8_t round) {
         break;
     }
 
-	timer_set(	AC_TASK_DISPLAY_ID, SC_GAME_TIME_TICK, SC_GAME_TIME_TICK_INTERVAL, TIMER_ONE_SHOT);
+	timer_set(	AC_TASK_DISPLAY_ID, SC_GAME_TIME_TICK, SC_GAME_TIME_TICK_INTERVAL, TIMER_PERIODIC);
 }
 
 static void scGameSpacecraftTimeTick(uint8_t round) {
-	task_post_pure_msg(SC_GAME_SPACECRAFT_ID, SC_GAME_SPACECRAFT_UPDATE);
 	task_post_pure_msg(SC_GAME_ARROW_ID, SC_GAME_ARROW_RUN);
 	task_post_pure_msg(SC_GAME_BANG_ID, SC_GAME_BANG_UPDATE);
 	task_post_pure_msg(SC_GAME_GIFT_ID, SC_GAME_GIFT_CHECK_RECEIVE);
@@ -402,6 +408,12 @@ static void scGameSpacecraftTimeTick(uint8_t round) {
 	case SC_GAME_ROUND_2:
 	case SC_GAME_ROUND_3: {
 		APP_DBG("SC_GAME_ROUND_%d\n", round);
+		if (round == SC_GAME_ROUND_2) {
+			task_post_pure_msg(SC_GAME_ENEMY_ID, SC_GAME_ENEMY_MOVE_Y);
+		}
+		else if (round == SC_GAME_ROUND_3) {
+			task_post_pure_msg(SC_GAME_ENEMY_ID, SC_GAME_ENEMY_MOVE_ZIGZAG_Y);
+		}
 		task_post_pure_msg(SC_GAME_ARROW_ENEMY_ID, SC_GAME_ARROW_ENEMY_RUN);
 		task_post_pure_msg(SC_GAME_ENEMY_ID, SC_GAME_ENEMY_UPDATE);
 		task_post_pure_msg(SC_GAME_ENEMY_ID, SC_GAME_ENEMY_DETONATOR);
@@ -419,6 +431,7 @@ static void scGameSpacecraftTimeTick(uint8_t round) {
 
 	case SC_GAME_ROUND_5: {
 		APP_DBG("SC_GAME_ROUND_%d\n", round);
+		task_post_pure_msg(SC_GAME_BOSS_SKILL_ID, SC_GAME_BOSS_SKILL_MOVE_ENERGY_BALL);
 		task_post_pure_msg(SC_GAME_BOSS_ID, SC_GAME_BOSS_UPDATE);
 		task_post_pure_msg(SC_GAME_BOSS_ID, SC_GAME_BOSS_MOVE);
 		task_post_pure_msg(SC_GAME_BOSS_ID, SC_GAME_BOSS_HIT);
@@ -430,6 +443,8 @@ static void scGameSpacecraftTimeTick(uint8_t round) {
 	default:
 		break;
 	}
+
+	task_post_pure_msg(AC_TASK_DISPLAY_ID, SC_GAME_RENDER);
 }
 
 void scr_spacecraft_game_handle(ak_msg_t* msg) {
@@ -440,6 +455,7 @@ void scr_spacecraft_game_handle(ak_msg_t* msg) {
 		eeprom_read( EEPROM_SETTING_START_ADDR, \
 				(uint8_t*)&settingsetup, \
 				sizeof(settingsetup));
+		sc_game_setting_validate(&settingsetup);
 		scGameSpacecraftRoundSetup(save_data.current_round);
 		// State update
 		sc_game_state = GAME_PLAY;
@@ -457,11 +473,21 @@ void scr_spacecraft_game_handle(ak_msg_t* msg) {
 	case SC_GAME_TIME_TICK: {
 		APP_DBG_SIG("SC_GAME_TIME_TICK\n");
 		scGameSpacecraftTimeTick(save_data.current_round);
-		timer_set(AC_TASK_DISPLAY_ID, SC_GAME_TIME_TICK, SC_GAME_TIME_TICK_INTERVAL, TIMER_ONE_SHOT);
+		SCREEN_NONE_UPDATE_MASK();
+	} break;
+
+	case SC_GAME_RENDER: {
+		// nothing to do: scr_mng_dispatch() draws the screen after this message
 	} break;
 
 	case SC_GAME_ROUND_COMPLETE: {
 		APP_DBG_SIG("SC_GAME_ROUND_COMPLETE\n");
+		if (sc_game_state != GAME_PLAY) {
+			break;
+		}
+		if (is_hit_showing) {
+			break;
+		}
 		sc_game_state = GAME_ROUND_COMPLETED;
 		task_post_pure_msg(SC_GAME_SCREEN_ID, SC_GAME_RESET);
 		timer_set(AC_TASK_DISPLAY_ID, SC_GAME_NEXT_ROUND, SC_GAME_WAIT_RESET_INTERVAL, TIMER_ONE_SHOT);
@@ -482,6 +508,10 @@ void scr_spacecraft_game_handle(ak_msg_t* msg) {
 
 	case SC_GAME_CHECK_GAME_OVER: {
 		APP_DBG_SIG("SC_GAME_CHECK_GAME_OVER\n");
+		if (sc_game_state == GAME_OVER) {
+			break;
+		}
+		timer_remove_attr(AC_TASK_DISPLAY_ID, SC_GAME_NEXT_ROUND);
 		save_data.spacecraft_hearts = 3; 
 		save_data.spacecraft_arrow_power = 1;
 		save_data.current_round = SC_GAME_ROUND_1;
@@ -520,6 +550,14 @@ void scr_spacecraft_game_handle(ak_msg_t* msg) {
 		timer_remove_attr(SC_GAME_BOSS_SKILL_ID, SC_GAME_BOSS_SKILL_MOVE_ENERGY_BALL);
 		timer_remove_attr(SC_GAME_BOSS_SKILL_ID, SC_GAME_BOSS_SKILL_RESET_LASER);
 		timer_remove_attr(SC_GAME_BOSS_SKILL_ID, SC_GAME_BOSS_SKILL_SHOOT_LASER);
+		timer_remove_attr(SC_GAME_ENEMY_ID, SC_GAME_ENEMY_BUILD_TEAM_0);
+		timer_remove_attr(SC_GAME_ENEMY_ID, SC_GAME_ENEMY_BUILD_TEAM_1);
+		timer_remove_attr(SC_GAME_ENEMY_ID, SC_GAME_ENEMY_BUILD_TEAM_2);
+		timer_remove_attr(SC_GAME_ENEMY_ID, SC_GAME_ENEMY_BUILD_TEAM_3);
+		timer_remove_attr(SC_GAME_GIFT_ID, SC_GAME_GIFT_RANDOM_FOR_METEOROID);
+		timer_remove_attr(SC_GAME_SPACECRAFT_ID, SC_GAME_SPACECRAFT_SETUP);
+		timer_remove_attr(SC_GAME_SPACECRAFT_ID, SC_GAME_SPACECRAFT_RESET_INVINCIBLE);
+		timer_remove_attr(SC_GAME_SPACECRAFT_ID, SC_GAME_SPACECRAFT_HIT_DONE);
 	} break;
 
 	case SC_GAME_EXIT_GAME: {

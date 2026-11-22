@@ -26,17 +26,16 @@ void scGameEnemyShoot(uint8_t enemyId) {
 }
 
 void scGameArrowEnemyRandomShoot() {
-    bool selected[TOTAL_ENEMY] = {false};
-    int count = 0;
+    uint8_t alive[TOTAL_ENEMY];
+    uint8_t n = 0;
+    for (uint8_t i = 0; i < TOTAL_ENEMY; i++) {
+        if (enemy[i].visible == WHITE) alive[n++] = i;
+    }
 
-    while (count < SHOOT_COUNT) {
-        int id = rand() % TOTAL_ENEMY;
-
-        if (!selected[id]) {
-            selected[id] = true;
-            scGameEnemyShoot(id);
-            count++;
-        }
+    for (uint8_t k = 0; k < SHOOT_COUNT && n > 0; k++) {
+        uint8_t pick = rand() % n;
+        scGameEnemyShoot(alive[pick]);
+        alive[pick] = alive[--n];
     }
 }
 
@@ -61,7 +60,7 @@ void scGameArrowEnemyRun() {
         for (uint8_t j = 0; j < MAX_ARROW_ENEMY; j++) {
             if (enemy[i].arrow[j].visible == WHITE) {
                 enemy[i].arrow[j].x -= settingsetup.arrow_speed;
-                if (enemy[i].arrow[j].x < 0) {
+                if (enemy[i].arrow[j].x + SIZE_BITMAP_ARROW_ENEMY_X <= 0) {
                     enemy[i].arrow[j].visible = BLACK;
                 }
             }
@@ -90,7 +89,6 @@ void sc_game_arrow_enemy_handle(ak_msg_t* msg) {
     case SC_GAME_ARROW_ENEMY_RANDOM_SHOOT: {
         APP_DBG_SIG("SC_GAME_ARROW_ENEMY_RANDOM_SHOOT\n");
         scGameArrowEnemyRandomShoot();
-        timer_set(SC_GAME_ARROW_ENEMY_ID, SC_GAME_ARROW_ENEMY_RANDOM_SHOOT, SC_GAME_RANDOM_ENEMY_SHOOT_INTERVAL, TIMER_ONE_SHOT);
     } break;
 
     case SC_GAME_ARROW_ENEMY_RUN: {
@@ -106,8 +104,7 @@ void sc_game_arrow_enemy_handle(ak_msg_t* msg) {
     case SC_GAME_ARROW_ENEMY_SHOOT: {
         APP_DBG_SIG("SC_GAME_ARROW_ENEMY_SHOOT\n");
         scGameArrowEnemyShoot();
-        timer_set(SC_GAME_ARROW_ENEMY_ID, SC_GAME_ARROW_ENEMY_SHOOT, SC_GAME_ENEMY_SHOOT_INTERVAL, TIMER_ONE_SHOT);
-    }
+    } break;
 
     default:
         break;

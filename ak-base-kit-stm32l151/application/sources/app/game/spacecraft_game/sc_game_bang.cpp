@@ -3,7 +3,7 @@
 sc_game_bang_t bang[NUM_BANG];
 
 static void scGameBangSetup() {
-    for (uint8_t i = 0; i < TOTAL_ENEMY; i++) { 
+    for (uint8_t i = 0; i < NUM_BANG; i++) { 
         bang[i].x = 0; 
         bang[i].y = 0;
         bang[i].visible = BLACK; 
@@ -12,7 +12,7 @@ static void scGameBangSetup() {
 }
 
 static void scGameBangUpdate() {
-    for (uint8_t i = 0; i < TOTAL_ENEMY; i++) { 
+    for (uint8_t i = 0; i < NUM_BANG; i++) { 
         if (bang[i].visible == WHITE) { 
             bang[i].action_image++; 
         } 
@@ -24,7 +24,7 @@ static void scGameBangUpdate() {
 }
 
 static void scGameBangReset() {
-    for (uint8_t i = 0; i < TOTAL_ENEMY; i++) { 
+    for (uint8_t i = 0; i < NUM_BANG; i++) { 
         bang[i].visible = BLACK; 
         bang[i].action_image = 1; 
     }     

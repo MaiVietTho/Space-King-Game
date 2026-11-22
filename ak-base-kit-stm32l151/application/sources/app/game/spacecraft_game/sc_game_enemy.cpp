@@ -16,8 +16,8 @@
 #define SC_ENEMY_8                  (8)
 #define SC_ENEMY_9                  (9)
 
-#define SC_ENEMY_MOVE_SPEED_X       (13)
-#define SC_ENEMY_MOVE_SPEED_Y       (3)
+#define SC_ENEMY_MOVE_SPEED_X       (6)     
+#define SC_ENEMY_MOVE_SPEED_Y       (2) 
 
 #define SC_RANDOM_NEG_Y_POS_1       (-8)
 #define SC_RANDOM_NEG_Y_POS_2       (-18)
@@ -39,7 +39,7 @@ sc_game_enemy_t enemy[TOTAL_ENEMY ];
 typedef struct {
     uint8_t start;
     uint8_t end;
-    uint32_t target_x;
+    int32_t target_x;
     uint8_t next_sig;
 } enemy_team_t;
 
@@ -49,6 +49,8 @@ static enemy_team_t enemy_team[] = {
     { SC_ENEMY_3, SC_ENEMY_4, 0, SC_GAME_ENEMY_BUILD_TEAM_0 },
     { SC_ENEMY_0, SC_ENEMY_2, 0, 0 }
 };
+
+static uint8_t building_teams = 0;
 
 static const uint8_t enemy_y[TOTAL_ENEMY] = {
     AXIS_Y_ENEMY_COLUM_0,
@@ -123,31 +125,47 @@ static void scGameEnemySetupMoveX() {
         enemy[i].action_image = 1;
     }
 
+    building_teams = 0;
     task_post_pure_msg(SC_GAME_ENEMY_ID, SC_GAME_ENEMY_BUILD_TEAM_3);
 }
 
-static void scGameEnemyBuild(uint8_t team_id, uint8_t current_sig) {
-    bool build_done = true;
-    enemy_team_t* team = &enemy_team[team_id];
+static void scGameEnemyBuild(uint8_t team_id) {
+    building_teams |= (1 << team_id);
+}
 
-    for (uint8_t i = team->start; i <= team->end; i++) {
-        if (enemy[i].visible == WHITE && enemy[i].x > team->target_x) {
-            enemy[i].x -= SC_ENEMY_MOVE_SPEED_X;
-            // X-axis setup position not reached yet
-            if (enemy[i].x > team->target_x) {
-                build_done = false;
+static void scGameEnemyBuildStep() {
+    for (uint8_t team_id = 0; team_id < sizeof(enemy_team) / sizeof(enemy_team[0]); team_id++) {
+        // Check whether this team is flying or not
+        if (!(building_teams & (1 << team_id))) continue;
+
+        bool build_done = true;
+        enemy_team_t* team = &enemy_team[team_id];
+
+        for (uint8_t i = team->start; i <= team->end; i++) {
+            if (enemy[i].visible == WHITE && enemy[i].x > team->target_x) {
+                enemy[i].x -= SC_ENEMY_MOVE_SPEED_X;
+                if (enemy[i].x < team->target_x) {
+                    enemy[i].x = team->target_x;
+                }
+                // X-axis setup position not reached yet
+                if (enemy[i].x > team->target_x) {
+                    build_done = false;
+                }
             }
         }
-    }
 
-    if (!build_done) {
-        timer_set(SC_GAME_ENEMY_ID, current_sig, 100, TIMER_ONE_SHOT);
-    }
-    else if (team->next_sig != 0) {
-        timer_set(SC_GAME_ENEMY_ID, team->next_sig, 100, TIMER_ONE_SHOT);
-    }
-    else {
-        task_post_pure_msg(SC_GAME_ARROW_ENEMY_ID, SC_GAME_ARROW_ENEMY_RANDOM_SHOOT);
+        if (!build_done) continue;
+
+        // Clear the bit when the team has completed its formation.
+        building_teams &= ~(1 << team_id);
+        if (team->next_sig != 0) {
+            // next team starts flying in this same tick (the loop reaches team_id + 1 next)
+            building_teams |= (1 << (team_id + 1));
+        }
+        else {
+            task_post_pure_msg(SC_GAME_ARROW_ENEMY_ID, SC_GAME_ARROW_ENEMY_RANDOM_SHOOT);
+            timer_set(SC_GAME_ARROW_ENEMY_ID, SC_GAME_ARROW_ENEMY_RANDOM_SHOOT, SC_GAME_RANDOM_ENEMY_SHOOT_INTERVAL, TIMER_PERIODIC);
+        }
     }
 }
 
@@ -155,15 +173,16 @@ static void scGameEnemyBuild(uint8_t team_id, uint8_t current_sig) {
 
 static void scGameEnemySetupMoveY() {
     scGameEnemySetTargetXByRound();
+    building_teams = 0;
 
     for (uint8_t i = 0; i < sizeof(enemy_team) / sizeof(enemy_team[0]); i++) {
         enemy_team_t* team = &enemy_team[i];
         for (uint8_t j = team->start; j <= team->end; j++) {
             enemy[j].visible = BLACK;
             enemy[j].y = SC_RANDOM_NEG_Y_POS_4;
-            enemy[i].hp = save_data.current_round * 2;
-            enemy[i].hearts = settingsetup.level;
-            enemy[i].action_image = 1;
+            enemy[j].hp = save_data.current_round * 2;
+            enemy[j].hearts = settingsetup.level;
+            enemy[j].action_image = 1;
             enemy[j].x = team->target_x;
         }
     }
@@ -261,11 +280,13 @@ static void scGameEnemyCheckWin() {
 static void scGameEnemyDetonation() {
     for (uint8_t i = 0; i < TOTAL_ENEMY; i++) {
         if (enemy[i].visible != WHITE) continue;
+        // arrows now fly to the screen edge: do not hit an enemy still off screen (round 1 fly-in)
+        if (enemy[i].x >= MAX_AXIS_X_ARROW) continue;
 
         for (uint8_t j = 0; j < MAX_NUM_ARROW; j++) {
             if (arrow[j].visible != WHITE) continue;
 
-            if ((enemy[i].x < (arrow[j].x + SIZE_BITMAP_ARROW_X - 3)) &&
+            if ((enemy[i].x < (arrow[j].x + SIZE_BITMAP_ARROW_X - 3)) && (arrow[j].x < (enemy[i].x + SIZE_BITMAP_ENEMIES_X)) &&
                 ((enemy[i].y - 2) <= arrow[j].y) && ((enemy[i].y + 8) >= arrow[j].y)) {
 
                 enemy[i].hp -= spacecraft.arrow_power;
@@ -285,10 +306,11 @@ static void scGameEnemyDetonation() {
                     /*--------Gift Drop--------*/
                     if (enemy[i].has_gift) {
                         for (uint8_t k = 0; k < GIFT_MAX; k++) {
-                            if (gift[k].object_id == i) {
+                            if (gift[k].object_id == i && gift[k].visible == BLACK && gift[k].type != GIFT_NONE) {
                                 gift[k].x = enemy[i].x;
                                 gift[k].y = enemy[i].y;
                                 gift[k].visible = WHITE;
+                                break;
                             }
                         }
                         enemy[i].has_gift = false;
@@ -325,6 +347,7 @@ static void scGameEnemyDetonation() {
 }
 
 static void scGameEnemyReset() {
+    building_teams = 0;
     for (uint8_t i = 0; i < TOTAL_ENEMY; i++) {
         enemy[i].visible = BLACK;
         enemy[i].x = POSITION_ENEMY_SETUP_X;
@@ -343,26 +366,27 @@ void sc_game_enemy_handle(ak_msg_t* msg) {
 
     case SC_GAME_ENEMY_BUILD_TEAM_3: {
         APP_DBG_SIG("SC_GAME_ENEMY_BUILD_TEAM_3\n");
-        scGameEnemyBuild(0, SC_GAME_ENEMY_BUILD_TEAM_3);
+        scGameEnemyBuild(0);
     } break;
 
     case SC_GAME_ENEMY_BUILD_TEAM_2: {
         APP_DBG_SIG("SC_GAME_ENEMY_BUILD_TEAM_2\n");
-        scGameEnemyBuild(1, SC_GAME_ENEMY_BUILD_TEAM_2);
+        scGameEnemyBuild(1);
     } break;
 
     case SC_GAME_ENEMY_BUILD_TEAM_1: {
         APP_DBG_SIG("SC_GAME_ENEMY_BUILD_TEAM_1\n");
-        scGameEnemyBuild(2, SC_GAME_ENEMY_BUILD_TEAM_1);
+        scGameEnemyBuild(2);
     } break;
 
     case SC_GAME_ENEMY_BUILD_TEAM_0: {
         APP_DBG_SIG("SC_GAME_ENEMY_BUILD_TEAM_0\n");
-        scGameEnemyBuild(3, SC_GAME_ENEMY_BUILD_TEAM_0);
+        scGameEnemyBuild(3);
     } break;
 
     case SC_GAME_ENEMY_UPDATE: {
         APP_DBG_SIG("SC_GAME_ENEMY_UPDATE\n");
+        scGameEnemyBuildStep();
         scGameEnemyUpdate();
     } break;
 
@@ -402,25 +426,21 @@ void sc_game_enemy_handle(ak_msg_t* msg) {
     case SC_GAME_ENEMY_MOVE_Y: {
         APP_DBG_SIG("SC_GAME_ENEMY_MOVE_Y\n");
         scGameEnemyMoveY(false);
-        timer_set(SC_GAME_ENEMY_ID, SC_GAME_ENEMY_MOVE_Y, SC_GAME_ENEMY_MOVE_INTERVAL, TIMER_ONE_SHOT);
     } break;
 
     case SC_GAME_ENEMY_MOVE_ZIGZAG_Y: {
         APP_DBG_SIG("SC_GAME_ENEMY_MOVE_ZIGZAG_Y\n");
         scGameEnemyMoveY(true);
-        timer_set(SC_GAME_ENEMY_ID, SC_GAME_ENEMY_MOVE_ZIGZAG_Y, SC_GAME_ENEMY_MOVE_INTERVAL, TIMER_ONE_SHOT);
     } break;
 
     case SC_GAME_ENEMY_RANDOM_MOVE_Y: {
         APP_DBG_SIG("SC_GAME_ENEMY_RANDOM_MOVE_Y\n");
         scGameEnemyRandomMoveY(false);
-        timer_set(SC_GAME_ENEMY_ID, SC_GAME_ENEMY_RANDOM_MOVE_Y, SC_GAME_ENEMY_SPAWN_INTERVAL, TIMER_ONE_SHOT);
     } break;
 
     case SC_GAME_ENEMY_RANDOM_MOVE_ZIGZAG_Y: {
         APP_DBG_SIG("SC_GAME_ENEMY_RANDOM_MOVE_ZIGZAG_Y\n");
         scGameEnemyRandomMoveY(true);
-        timer_set(SC_GAME_ENEMY_ID, SC_GAME_ENEMY_RANDOM_MOVE_ZIGZAG_Y, SC_GAME_ENEMY_SPAWN_INTERVAL, TIMER_ONE_SHOT);
     } break;
 
     case SC_GAME_ENEMY_RESET: {

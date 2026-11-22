@@ -29,12 +29,16 @@ static void scGameGiftRandomForEnemy() {
         count_retry++;
     } while ((enemy[id].hearts <= 0 || enemy[id].has_gift == true) && count_retry < 50);
 
-    enemy[id].has_gift = true;
-    total_gift_spawned++;
+    if (enemy[id].hearts <= 0 || enemy[id].has_gift == true) {
+        return;
+    }
+
     for (uint8_t i = 0; i < GIFT_MAX; i++) {
         if (gift[i].visible == BLACK && gift[i].type == GIFT_NONE) {
             gift[i].object_id = id;
             gift[i].type =  (gift_type_t)(rand() % GIFT_NONE);
+            enemy[id].has_gift = true;
+            total_gift_spawned++;
             break;
         }
     } 
@@ -52,12 +56,16 @@ static void scGameGiftRandomForMeteoroid() {
         count_retry++;
     } while (meteoroid[id].has_gift  && count_retry < 50);
 
-    meteoroid[id].has_gift = true;
-    total_gift_spawned++;
+    if (meteoroid[id].has_gift) {
+        return;
+    }
+
     for (uint8_t i = 0; i < GIFT_MAX; i++) {
         if (gift[i].visible == BLACK && gift[i].type == GIFT_NONE) {
             gift[i].object_id = id;
             gift[i].type =  (gift_type_t)(rand() % GIFT_NONE);
+            meteoroid[id].has_gift = true;
+            total_gift_spawned++;
             break;
         }
     }

@@ -158,6 +158,10 @@ public:
 	//off screen
 	void display_off();
 
+	//raw framebuffer access (page layout: byte = (y / 8) * 128 + x, bit = y % 8)
+	const unsigned char* getFrameBuffer() const;
+	unsigned int getFrameBufferSize() const;
+
 protected:
 	//write one byte to the screen.
 	void writeByte(unsigned char  b);

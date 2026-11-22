@@ -45,6 +45,7 @@
 #include "flash.h"
 
 #include "qrcode.h"
+#include "ring_buffer.h"
 
 /*****************************************************************************/
 /*  local declare
@@ -59,6 +60,9 @@ static uint8_t str_list_len;
 
 static uint8_t str_parser(char* str);
 static char* str_parser_get_attr(uint8_t);
+static void shell_lcd_dump_framebuffer();
+static void shell_lcd_stream_start(uint32_t seconds);
+static void shell_lcd_stream_stop();
 
 /*****************************************************************************/
 /*  command function declare
@@ -510,6 +514,15 @@ int32_t shell_flash(uint8_t* argv) {
 	return 0;
 }
 
+/* wait until the interrupt driven console ring buffer is sent (max 200 ms) */
+static void shell_console_flush() {
+	extern ring_buffer_char_t ring_buffer_char_shell_send;
+	uint32_t start = sys_ctrl_millis();
+
+	while (!ring_buffer_char_is_empty(&ring_buffer_char_shell_send) && (sys_ctrl_millis() - start) < 200) {
+	}
+}
+
 int32_t shell_lcd(uint8_t* argv) {
 	switch (*(argv + 4)) {
 	case 'i':
@@ -582,12 +595,150 @@ int32_t shell_lcd(uint8_t* argv) {
 		view_render.update ();
 		break;
 
+	case 'd':
+		shell_lcd_dump_framebuffer();
+		break;
+
+	case 'v': {
+		uint32_t seconds = 10;
+		if (str_parser((char*)argv) == 3) {
+			seconds = (uint32_t)strtol(str_parser_get_attr(2), NULL, 0);
+		}
+		shell_lcd_stream_start(seconds);
+	}
+		break;
+
+	case 'x':
+		shell_lcd_stream_stop();
+		break;
+
 	default:
 		LOGIN_PRINT("unknow option\n");
 		break;
 	}
 
 	return 0;
+}
+
+void shell_lcd_dump_framebuffer() {
+	const unsigned char* frame_buffer = view_render.getFrameBuffer();
+	unsigned int frame_buffer_size = view_render.getFrameBufferSize();
+
+	if (frame_buffer == NULL) {
+		LOGIN_PRINT("lcd framebuffer is not initialized\n");
+		return;
+	}
+
+	/* the 5 KB dump does not fit the 512 B console ring buffer: send it blocking */
+	shell_console_flush();
+	sys_ctrl_shell_sw_to_block();
+
+	LOGIN_PRINT("[DUMP] frame buffer lcd => start\n");
+	LOGIN_PRINT("width=128 height=64 bytes=%d\n", frame_buffer_size);
+
+	for (unsigned int i = 0; i < frame_buffer_size; i++) {
+		if ((i % 16) == 0) {
+			sys_ctrl_independent_watchdog_reset();
+			sys_ctrl_soft_watchdog_reset();
+			LOGIN_PRINT("\n");
+		}
+		LOGIN_PRINT("0x%02X", frame_buffer[i]);
+		if ((i + 1) < frame_buffer_size) {
+			LOGIN_PRINT(",");
+		}
+	}
+
+	LOGIN_PRINT("\n[DUMP] frame buffer lcd => end\n");
+
+	sys_ctrl_shell_sw_to_nonblock();
+}
+
+/* Video capture for tools/fb2png.py --record.
+ * After each LCD update, the framebuffer is sent as one binary packet:
+ *   0xA5 0x5A 'F' len_lo len_hi {count, value}... xor
+ * where {count, value} are run-length pairs and xor is the xor of all pairs.
+ * Console text output is muted while streaming so it cannot corrupt the packets.
+ */
+static volatile bool lcd_stream_active = false;
+static uint32_t lcd_stream_end_ms;
+
+static void shell_lcd_stream_send_frame() {
+	const unsigned char* fb = view_render.getFrameBuffer();
+	uint16_t size = view_render.getFrameBufferSize();
+	uint16_t runs = 0;
+	uint8_t check = 0;
+
+	if (fb == NULL) {
+		return;
+	}
+
+	for (uint16_t i = 0; i < size; ) {
+		uint16_t count = 1;
+		while (i + count < size && fb[i + count] == fb[i] && count < 255) {
+			count++;
+		}
+		runs++;
+		i += count;
+	}
+
+	sys_ctrl_shell_put_char_block(0xA5);
+	sys_ctrl_shell_put_char_block(0x5A);
+	sys_ctrl_shell_put_char_block('F');
+	sys_ctrl_shell_put_char_block((runs * 2) & 0xFF);
+	sys_ctrl_shell_put_char_block((runs * 2) >> 8);
+
+	for (uint16_t i = 0; i < size; ) {
+		uint16_t count = 1;
+		while (i + count < size && fb[i + count] == fb[i] && count < 255) {
+			count++;
+		}
+		sys_ctrl_shell_put_char_block((uint8_t)count);
+		sys_ctrl_shell_put_char_block(fb[i]);
+		check ^= (uint8_t)count ^ fb[i];
+		i += count;
+
+		sys_ctrl_independent_watchdog_reset();
+		sys_ctrl_soft_watchdog_reset();
+	}
+
+	sys_ctrl_shell_put_char_block(check);
+}
+
+void shell_lcd_stream_start(uint32_t seconds) {
+	if (seconds < 1 || seconds > 60) {
+		LOGIN_PRINT("usage: lcd v [1..60 s]\n");
+		return;
+	}
+
+	shell_console_flush();
+	sys_ctrl_shell_sw_to_block();
+	LOGIN_PRINT("[STREAM] lcd => start %d s\n", seconds);
+	xdev_out(0);	/* mute console text until the stream stops */
+
+	lcd_stream_end_ms = sys_ctrl_millis() + seconds * 1000;
+	lcd_stream_active = true;
+	shell_lcd_stream_send_frame();	/* current screen, even if nothing redraws */
+}
+
+void shell_lcd_stream_stop() {
+	if (!lcd_stream_active) {
+		return;
+	}
+	lcd_stream_active = false;
+	sys_ctrl_shell_sw_to_block();
+	LOGIN_PRINT("\n[STREAM] lcd => end\n");
+	sys_ctrl_shell_sw_to_nonblock();
+}
+
+void view_render_frame_updated() {
+	if (!lcd_stream_active) {
+		return;
+	}
+	if ((int32_t)(sys_ctrl_millis() - lcd_stream_end_ms) >= 0) {
+		shell_lcd_stream_stop();
+		return;
+	}
+	shell_lcd_stream_send_frame();
 }
 
 /* https://www.charbase.com */

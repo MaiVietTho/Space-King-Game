@@ -23,29 +23,16 @@ static void scGameMeteoroidSetup() {
 }
 
 static void scGameMeteoroidSpawn(uint8_t id, uint8_t pos) {
-    for (uint8_t i = 0; i < NUM_METEOROIDS; i++) {
-        if (i == id && meteoroid[id].visible == BLACK) {
-            meteoroid[id].x = meteoroid_x[pos];
-            meteoroid[id].y  = -20;
-            meteoroid[id].visible = WHITE;
-        }
-    }    
+    if (meteoroid[id].visible == BLACK) {
+        meteoroid[id].x = meteoroid_x[pos];
+        meteoroid[id].y  = -20;
+        meteoroid[id].hp = save_data.current_round * 2;
+        meteoroid[id].visible = WHITE;
+    }
 }
 
 static void scGameMeteoroidRandom() {
-    uint8_t id;
-    uint8_t pos;
-    
-    id = rand() % 10;
-    pos = rand() % 5;
-
-    for (uint8_t i = 0; i < NUM_METEOROIDS; i++) {
-        if (i == id && meteoroid[id].visible == BLACK) {
-            meteoroid[id].x = meteoroid_x[pos];
-            meteoroid[id].y  = -20;
-            meteoroid[id].visible = WHITE;
-        }
-    } 
+    scGameMeteoroidSpawn(rand() % NUM_METEOROIDS, rand() % 5);
 }
 
 static void scGameMeteoroidMove() {
@@ -56,7 +43,9 @@ static void scGameMeteoroidMove() {
             if (meteoroid[i].y >= 64) {
                 meteoroid[i].visible = BLACK;
                 meteoroid[i].hp = save_data.current_round * 2;
-                remaining_meteoroids--;
+                if (remaining_meteoroids > 0) {
+                    remaining_meteoroids--;
+                }
             }
         }
     } 
@@ -65,6 +54,8 @@ static void scGameMeteoroidMove() {
 static void sc_gameMeteoroidDetonation() {
     for (uint8_t i = 0; i < NUM_METEOROIDS; i++) {
         if (meteoroid[i].visible != WHITE) continue;
+        // arrows now fly to the screen edge: do not hit a meteoroid that has drifted off screen
+        if (meteoroid[i].x >= MAX_AXIS_X_ARROW) continue;
 
         for (uint8_t j = 0; j < MAX_NUM_ARROW; j++) {
             if (arrow[j].visible != WHITE) continue;
@@ -80,7 +71,9 @@ static void sc_gameMeteoroidDetonation() {
                 /*-----------Meteoroid Destroyed------------*/
                 if (meteoroid[i].hp <= 0) {
                     meteoroid[i].visible = BLACK;
-                    remaining_meteoroids--;
+                    if (remaining_meteoroids > 0) {
+                        remaining_meteoroids--;
+                    }
 
                     bang[i].visible = WHITE;
                     bang[i].x = meteoroid[i].x - 5;
@@ -89,13 +82,14 @@ static void sc_gameMeteoroidDetonation() {
                     /*--------Gift Drop--------*/
                     if (meteoroid[i].has_gift) {
                         for (uint8_t k = 0; k < GIFT_MAX; k++) {
-                            if (gift[k].object_id == i) {
+                            if (gift[k].object_id == i && gift[k].visible == BLACK && gift[k].type != GIFT_NONE) {
                                 gift[k].x = meteoroid[i].x + 5;
                                 gift[k].y = meteoroid[i].y  + 7;
                                 gift[k].visible = WHITE;
-                                meteoroid[i].has_gift = false;
+                                break;
                             }
                         }
+                        meteoroid[i].has_gift = false;
                     }
 
                     BUZZER_PlayTones(tones_BUM);
@@ -117,7 +111,6 @@ void sc_game_meteoroid_handle(ak_msg_t* msg) {
     case SC_GAME_METEOROID_RANDOM: {
         APP_DBG("SC_GAME_METEOROID_RANDOM\n");
         scGameMeteoroidRandom();
-        timer_set(SC_GAME_METEOROID_ID, SC_GAME_METEOROID_RANDOM, SC_GAME_METEOROID_SPAWN_INTERVAL, TIMER_ONE_SHOT);
     } break;
 
     case SC_GAME_METEOROID_MOVE: {

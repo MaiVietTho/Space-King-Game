@@ -60,6 +60,8 @@ void scr_info_handle(ak_msg_t* msg) {
 		eeprom_read(	EEPROM_SETTING_START_ADDR, \
 						(uint8_t*)&settingdata, \
 						sizeof(settingdata));
+		sc_game_setting_validate(&settingdata);
+		BUZZER_Sleep(settingdata.silent);
 						
 		eeprom_read(	EEPROM_SAVE_DATA_START_ADDR, \
 						(uint8_t*)&save_data, \

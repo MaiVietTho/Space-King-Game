@@ -19,10 +19,11 @@ static void scGameBossSkillSetup() {
 }
 
 static void scGameBossSkillMoveEnergyBall() {
+    // Called every tick
     for (uint8_t i = 0; i < MAX_NUM_BOSS_SKILL; i++) {
         if (energy_ball[i].visible == WHITE) {
-            energy_ball[i].x -= settingsetup.arrow_speed;
-            if (energy_ball[i].x < 0) {
+            energy_ball[i].x -= SC_ENERGY_BALL_SPEED_X;
+            if (energy_ball[i].x + SIZE_BITMAP_ENERGY_BALL_X <= 0) {
                 energy_ball[i].visible = BLACK;
             }
         }
@@ -61,7 +62,6 @@ void sc_game_boss_skill_handle(ak_msg_t* msg) {
     case SC_GAME_BOSS_SKILL_MOVE_ENERGY_BALL: {
         APP_DBG_SIG("SC_GAME_BOSS_SKILL_MOVE_ENERGY_BALL\n");
         scGameBossSkillMoveEnergyBall();
-        timer_set(SC_GAME_BOSS_SKILL_ID, SC_GAME_BOSS_SKILL_MOVE_ENERGY_BALL, SC_GAME_ENERGY_BALL_MOVE_INTERVAL, TIMER_ONE_SHOT);
     } break;
 
     case SC_GAME_BOSS_SKILL_SHOOT_ENERGY_BALL: {

@@ -51,30 +51,30 @@ static void sc_gameBossRandomDirection() {
 static void sc_gameBossdMove() {
     switch (dir_boss) {
         case BOSS_MOVE_UP: {
-            boss.y -= SC_METEOROID_MOVE_SPEED;
+            boss.y -= SC_BOSS_MOVE_SPEED;
             if(is_laser_shooting) {
-                laser.y -= SC_METEOROID_MOVE_SPEED;
+                laser.y -= SC_BOSS_MOVE_SPEED;
             }
         } break;
 
         case BOSS_MOVE_DOWN: {
-            boss.y += SC_METEOROID_MOVE_SPEED;
+            boss.y += SC_BOSS_MOVE_SPEED;
             if(is_laser_shooting) {
-                laser.y += SC_METEOROID_MOVE_SPEED;
+                laser.y += SC_BOSS_MOVE_SPEED;
             }
         } break;
 
         case BOSS_MOVE_FORWARD: {
-            boss.x -= SC_METEOROID_MOVE_SPEED;
+            boss.x -= SC_BOSS_MOVE_SPEED;
             if (is_laser_shooting) {
-                laser.x -= SC_METEOROID_MOVE_SPEED;
+                laser.x -= SC_BOSS_MOVE_SPEED;
             }
         } break;
 
         case BOSS_MOVE_BACKWARD: {
-            boss.x += SC_METEOROID_MOVE_SPEED;
+            boss.x += SC_BOSS_MOVE_SPEED;
             if (is_laser_shooting) {
-                laser.x += SC_METEOROID_MOVE_SPEED;
+                laser.x += SC_BOSS_MOVE_SPEED;
             }          
         } break;
 

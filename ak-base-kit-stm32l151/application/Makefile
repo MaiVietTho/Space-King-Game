@@ -13,7 +13,7 @@ Print = @echo "~"
 NAME_MODULE = ak-base-kit-stm32l151-application
 PROJECT = $(NAME_MODULE)
 
-GCC_PATH			= $(HOME)/Documents/Toolchain/gcc-arm-none-eabi-10.3-2021.10
+GCC_PATH			= $(HOME)/Documents/arm-gnu-toolchain-15.3.rel2-x86_64-arm-none-eabi
 PROGRAMER_PATH		= $(HOME)/Documents/APP/bin/
 OPENOCD_CFG_PATH	= /usr/local/share/openocd/scripts/board/stm32ldiscovery.cfg
 
@@ -90,11 +90,11 @@ LIBFPU		= $(GCC_PATH)/arm-none-eabi/lib/thumb/v7-m/nofp/libg.a
 LIBRDPMON	= $(GCC_PATH)/arm-none-eabi/lib/thumb/v7-m/nofp/librdpmon.a
 LIBSTDCPP_NANO	= $(GCC_PATH)/arm-none-eabi/lib/thumb/v7-m/nofp/libstdc++_nano.a
 
-LIBGCC		= $(GCC_PATH)/lib/gcc/arm-none-eabi/10.3.1/thumb/v7-m/nofp/libgcc.a
-LIBGCOV		= $(GCC_PATH)/lib/gcc/arm-none-eabi/10.3.1/thumb/v7-m/nofp/libgcov.a
+LIBGCC		= $(GCC_PATH)/lib/gcc/arm-none-eabi/15.3.1/thumb/v7-m/nofp/libgcc.a
+LIBGCOV		= $(GCC_PATH)/lib/gcc/arm-none-eabi/15.3.1/thumb/v7-m/nofp/libgcov.a
 
 LIB_PATH += -L$(GCC_PATH)/arm-none-eabi/lib/thumb/v7-m/nofp
-LIB_PATH += -L$(GCC_PATH)/lib/gcc/arm-none-eabi/10.3.1/thumb/v7-m/nofp
+LIB_PATH += -L$(GCC_PATH)/lib/gcc/arm-none-eabi/15.3.1/thumb/v7-m/nofp
 
 # The command for calling the compiler.
 CC		=	$(GCC_PATH)/bin/arm-none-eabi-gcc

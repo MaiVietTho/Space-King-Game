@@ -18,6 +18,7 @@
 #define SPACECRAFT_MOVE_STEP     (5)
 #define SIZE_BITMAP_SPACECRAFT_X   (15)
 #define SIZE_BITMAP_SPACECRAFT_Y   (15)
+#define SPACECRAFT_SHOT_PASS_X     (SIZE_BITMAP_SPACECRAFT_X * 2 / 3)
 #define AXIS_X_SPACECRAFT          (0)
 #define AXIS_Y_SPACECRAFT          (20)
 
@@ -30,5 +31,7 @@ typedef struct {
 } sc_game_spacecraft_t;
 
 extern sc_game_spacecraft_t spacecraft;
+extern bool is_invincible;
+extern bool is_hit_showing;
 
 #endif //__SC_GAME_SPACECRAFT_H__

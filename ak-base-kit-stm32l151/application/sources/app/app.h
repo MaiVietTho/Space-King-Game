@@ -205,6 +205,7 @@ enum {
 	SC_GAME_ROUND_COMPLETE,
 	SC_GAME_NEXT_ROUND,
 	SC_GAME_CHECK_GAME_OVER,
+	SC_GAME_RENDER,
 };
 
 /*****************************************************************************/
@@ -224,10 +225,11 @@ enum {
 /* define timer */
 #define SC_GAME_SPACECRAFT_RESPAWN_INTERVAL					(1000)
 #define SC_GAME_SPACECRAFT_RESET_INVINCIBLE_INTERVAL		(3000)
+#define SC_GAME_SPACECRAFT_HIT_SHOW_INTERVAL				(300)
+#define SC_GAME_SPACECRAFT_MOVE_INTERVAL					(SC_GAME_TIME_TICK_INTERVAL)
 /* define signal */
 enum {
 	SC_GAME_SPACECRAFT_SETUP = SC_GAME_DEFINE_SIG,
-	SC_GAME_SPACECRAFT_UPDATE,
 	SC_GAME_SPACECRAFT_UP,
 	SC_GAME_SPACECRAFT_DOWN,
 	SC_GAME_SPACECRAFT_FORWARD,
@@ -238,6 +240,7 @@ enum {
 	SC_GAME_SPACECRAFT_CHECK_GAME_OVER_BY_ENERGY_BALL,
 	SC_GAME_SPACECRAFT_CHECK_GAME_OVER_BY_LASER,
 	SC_GAME_SPACECRAFT_RESET_INVINCIBLE,
+	SC_GAME_SPACECRAFT_HIT_DONE,
 };
 
 /*****************************************************************************/
@@ -295,7 +298,6 @@ enum {
  */
 /*****************************************************************************/
 /* define timer */
-#define SC_GAME_ENEMY_MOVE_INTERVAL						(200)
 #define SC_GAME_ENEMY_SPAWN_INTERVAL					(2000)
 #define SC_GAME_ENEMY_RESPAWN_INTERVAL					(1000)
 /* define signal */
@@ -374,7 +376,6 @@ enum {
 /*****************************************************************************/
 /* define timer */
 #define SC_GAME_ENERGY_BALL_SHOOT_INTERVAL					(4000)
-#define SC_GAME_ENERGY_BALL_MOVE_INTERVAL					(200)
 #define SC_GAME_LASER_SHOOT_INTERVAL						(10000)
 #define SC_GAME_LASER_RESET_INTERVAL						(1000)
 /* define signal */

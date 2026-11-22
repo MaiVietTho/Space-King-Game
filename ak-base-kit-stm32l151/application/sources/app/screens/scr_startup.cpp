@@ -45,6 +45,10 @@ void scr_startup_handle(ak_msg_t* msg) {
 		view_render.initialize();
 		view_render_display_on();
 		timer_set(AC_TASK_DISPLAY_ID, AC_DISPLAY_SHOW_LOGO, AC_DISPLAY_STARTUP_INTERVAL, TIMER_ONE_SHOT);
+		eeprom_read(	EEPROM_SETTING_START_ADDR, \
+						(uint8_t*)&settingdata, \
+						sizeof(settingdata));
+		sc_game_setting_validate(&settingdata);
 		BUZZER_Sleep(settingdata.silent);
 	}
 		break;

@@ -16,7 +16,7 @@
 #include "buzzer.h"
 #include "scr_spacecraft_game.h"
 
-#define SC_METEOROID_MOVE_SPEED     (2)
+#define SC_BOSS_MOVE_SPEED          (2)
 #define SIZE_BITMAP_BOSS_X          (20)
 #define SIZE_BITMAP_BOSS_Y          (20)
 
@@ -30,4 +30,4 @@ typedef struct {
 extern bool boss_enraged;
 extern sc_game_boss_t boss;
 
-#endif //__SC_GAME_METEOROID_H__
+#endif //__SC_GAME_BOSS_H__

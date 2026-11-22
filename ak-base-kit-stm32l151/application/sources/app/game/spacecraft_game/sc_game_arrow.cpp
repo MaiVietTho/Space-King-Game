@@ -15,7 +15,7 @@ static void scGameArrowRun() {
     for (uint8_t i = 0; i < MAX_NUM_ARROW; i++) { 
         if (arrow[i].visible == WHITE) { 
             arrow[i].x += settingsetup.arrow_speed; 
-            if (arrow[i].x == MAX_AXIS_X_ARROW) { 
+            if (arrow[i].x >= MAX_AXIS_X_ARROW) { 
                 arrow[i].visible = BLACK; 
                 arrow[i].x = 0; 
                 settingsetup.num_arrow++; 
@@ -26,7 +26,7 @@ static void scGameArrowRun() {
 
 static void scGameArrowShoot() {
     for (uint8_t i = 0; i < MAX_NUM_ARROW; i++) { 
-        if (arrow[i].visible == BLACK && settingsetup.num_arrow != 0 && spacecraft.visible == WHITE) { 
+        if (arrow[i].visible == BLACK && settingsetup.num_arrow != 0 && spacecraft.visible == WHITE && !is_hit_showing) { 
             settingsetup.num_arrow--; 
             arrow[i].visible = WHITE; 
             arrow[i].x = spacecraft.x;

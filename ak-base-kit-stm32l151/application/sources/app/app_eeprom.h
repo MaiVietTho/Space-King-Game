@@ -40,6 +40,26 @@ typedef struct {
   uint8_t level;
 } ar_game_setting_t;
 
+#define SETTING_DEFAULT_NUM_ARROW     (5)
+#define SETTING_DEFAULT_ARROW_SPEED   (5)
+#define SETTING_DEFAULT_LEVEL         (1)
+
+static inline void sc_game_setting_validate(ar_game_setting_t* setting) {
+  uint8_t* silent_raw = (uint8_t*)&setting->silent;
+  if (*silent_raw > 1) {
+    *silent_raw = 0;
+  }
+  if (setting->num_arrow < 1 || setting->num_arrow > 10) {
+    setting->num_arrow = SETTING_DEFAULT_NUM_ARROW;
+  }
+  if (setting->arrow_speed != SETTING_DEFAULT_ARROW_SPEED) {
+    setting->arrow_speed = SETTING_DEFAULT_ARROW_SPEED;
+  }
+  if (setting->level < 1 || setting->level > 3) {
+    setting->level = SETTING_DEFAULT_LEVEL;
+  }
+}
+
 typedef struct{
   uint8_t spacecraft_hearts;
   uint8_t spacecraft_arrow_power;

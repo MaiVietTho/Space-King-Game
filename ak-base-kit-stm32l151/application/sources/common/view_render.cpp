@@ -109,8 +109,12 @@ int view_render_screen(view_screen_t* screen) {
 	}
 
 	view_render.update();
+	view_render_frame_updated();
 
 	return 0;
+}
+
+__attribute__((weak)) void view_render_frame_updated() {
 }
 
 void view_render_display_on() {

@@ -1,4 +1,6 @@
 #include "scr_menu_game.h"
+
+#include <stdlib.h>
 /*****************************************************************************/
 /* Instructions for adding new items to the menu*/
 /*****************************************************************************/
@@ -204,11 +206,14 @@ void screen_tran_menu() {
 	switch (screen_menu.location) {
 	case 0:	{
 		// item 1
+		// Seed rand() with the player's press time so each game plays differently
+		srand(sys_ctrl_millis());
 		SCREEN_TRAN(scr_game_change_round_handle, &scr_game_change_round);
 	} break;
 
 	case 1:	{
 		// item 2
+		srand(sys_ctrl_millis());
 		save_data.spacecraft_hearts = 3;
 		save_data.spacecraft_arrow_power = 1;
 		save_data.current_round = SC_GAME_ROUND_1;

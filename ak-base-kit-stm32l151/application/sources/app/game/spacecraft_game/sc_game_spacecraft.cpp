@@ -1,9 +1,10 @@
 #include "sc_game_spacecraft.h"
 
 sc_game_spacecraft_t spacecraft;
-static int32_t spacecraft_y = AXIS_Y_SPACECRAFT;
-static int32_t spacecraft_x = AXIS_X_SPACECRAFT;
-static bool is_invincible = false;
+bool is_invincible = false;
+bool is_hit_showing = false;
+static int32_t last_check_y_enemy = AXIS_Y_SPACECRAFT;
+static int32_t last_check_y_energy_ball = AXIS_Y_SPACECRAFT;
 
 static void scGameSpacecraftSetup() {
     spacecraft.x = AXIS_X_SPACECRAFT; 
@@ -12,41 +13,43 @@ static void scGameSpacecraftSetup() {
     spacecraft.hearts = save_data.spacecraft_hearts;
     spacecraft.arrow_power = save_data.spacecraft_arrow_power;
     spacecraft.action_image = 1; 
+    last_check_y_enemy = spacecraft.y;
+    last_check_y_energy_ball = spacecraft.y;
     APP_DBG("spacecraft y: %d\n", spacecraft.y);
 }
 
 static void scGameSpacecraftUp() {
-    if (spacecraft.visible == WHITE) {
-        spacecraft_y -= SPACECRAFT_MOVE_STEP;
-        if (spacecraft_y <= 0) {
-            spacecraft_y = 0;
+    if (spacecraft.visible == WHITE && !is_hit_showing) {
+        spacecraft.y -= SPACECRAFT_MOVE_STEP;
+        if (spacecraft.y <= 0) {
+            spacecraft.y = 0;
         }
     }
 }
 
 static void scGameSpacecraftDown() {
-    if (spacecraft.visible == WHITE) {
-        spacecraft_y += SPACECRAFT_MOVE_STEP;
-        if (spacecraft_y >= 40) {
-            spacecraft_y = 40;
+    if (spacecraft.visible == WHITE && !is_hit_showing) {
+        spacecraft.y += SPACECRAFT_MOVE_STEP;
+        if (spacecraft.y >= 40) {
+            spacecraft.y = 40;
         }
     }
 }
 
 static void scGameSpacecraftForward() {
-    if (spacecraft.visible == WHITE) {
-        spacecraft_x += SPACECRAFT_MOVE_STEP;
-        if (spacecraft_x >= 110) {
-            spacecraft_x = 110;
+    if (spacecraft.visible == WHITE && !is_hit_showing) {
+        spacecraft.x += SPACECRAFT_MOVE_STEP;
+        if (spacecraft.x >= 110) {
+            spacecraft.x = 110;
         }
     }
 }
 
 static void scGameSpacecraftBackward() {
-    if (spacecraft.visible == WHITE) {
-        spacecraft_x -= SPACECRAFT_MOVE_STEP;
-        if (spacecraft_x <= 0) {
-            spacecraft_x = 0;
+    if (spacecraft.visible == WHITE && !is_hit_showing) {
+        spacecraft.x -= SPACECRAFT_MOVE_STEP;
+        if (spacecraft.x <= 0) {
+            spacecraft.x = 0;
         }
     }
 }
@@ -55,19 +58,28 @@ static void scGameSpacecraftReset() {
     spacecraft.x = AXIS_X_SPACECRAFT;
     spacecraft.y = AXIS_Y_SPACECRAFT;
     spacecraft.visible = BLACK;
-    spacecraft_y = AXIS_Y_SPACECRAFT;
-    spacecraft_x = AXIS_X_SPACECRAFT;
     is_invincible = false;
+    is_hit_showing = false;
 }
 
+// Hit: keep the ship drawn where it was hit (over the shot) for a moment (300ms), then HitDone() removes it.
 static void scGameSpacecraftHandleDeath() {
+    if (spacecraft.visible == BLACK || is_hit_showing) {
+        return;
+    }
+    is_hit_showing = true;
+    timer_set(SC_GAME_SPACECRAFT_ID, SC_GAME_SPACECRAFT_HIT_DONE, SC_GAME_SPACECRAFT_HIT_SHOW_INTERVAL, TIMER_ONE_SHOT);
+}
+
+static void scGameSpacecraftHitDone() {
+    is_hit_showing = false;
     spacecraft.visible = BLACK;
     save_data.spacecraft_hearts--;
     if (save_data.spacecraft_arrow_power > 1) {
         save_data.spacecraft_arrow_power = save_data.spacecraft_arrow_power / 2;
     }
-    spacecraft_x = AXIS_X_SPACECRAFT;
-    spacecraft_y = AXIS_Y_SPACECRAFT;
+    spacecraft.x = AXIS_X_SPACECRAFT;
+    spacecraft.y = AXIS_Y_SPACECRAFT;
     if (save_data.spacecraft_hearts <= 0) {
         task_post_pure_msg(SC_GAME_SCREEN_ID, SC_GAME_CHECK_GAME_OVER);
         return;
@@ -77,15 +89,41 @@ static void scGameSpacecraftHandleDeath() {
     timer_set(SC_GAME_SPACECRAFT_ID, SC_GAME_SPACECRAFT_RESET_INVINCIBLE, SC_GAME_SPACECRAFT_RESET_INVINCIBLE_INTERVAL, TIMER_ONE_SHOT);
 }
 
+/*The spaceship is destroyed when a bullet penetrates 10 px into its body (direct hit). 
+If the spaceship is moving and collides with a bullet, 
+it is also considered destroyed if the bullet's tail has not passed the 2/3 point of the spaceship's body*/
+static bool scGameSpacecraftShotHitX(int32_t shot_x, int32_t shot_w, int32_t step, bool head_on) {
+    int32_t nose_x = spacecraft.x + SIZE_BITMAP_SPACECRAFT_X;
+    int32_t pass_x = nose_x - SPACECRAFT_SHOT_PASS_X;
+    // Direct hit
+    if (head_on) {
+        return (shot_x <= pass_x) && (shot_x + step > pass_x);
+    }
+    //Collides with a bullet while moving
+    return (shot_x + shot_w > pass_x) && (shot_x < nose_x);
+}
+
+static bool scGameSpacecraftArrowEnemyOverlapY(int32_t ship_y, int32_t arrow_y) {
+    return ship_y <= (arrow_y + SIZE_BITMAP_ARROW_ENEMY_Y - 3) && (ship_y + SIZE_BITMAP_SPACECRAFT_Y) >= arrow_y + 3;
+}
+
+static bool scGameSpacecraftEnergyBallOverlapY(int32_t ship_y, int32_t ball_y) {
+    return ship_y < (ball_y + SIZE_BITMAP_ENERGY_BALL_Y - 1) && (ship_y + SIZE_BITMAP_SPACECRAFT_Y - 1) > ball_y;
+}
+
 static void scGameSpacecraftCheckGameOverByEnemy() {
     for (uint8_t i = 0; i < TOTAL_ENEMY; i++) {
         for (uint8_t j = 0; j < MAX_ARROW_ENEMY; j++) {
             if (enemy[i].arrow[j].visible == WHITE && !is_invincible &&
-                enemy[i].arrow[j].x + 10 <= spacecraft.x + SIZE_BITMAP_SPACECRAFT_X && spacecraft.y <= (enemy[i].arrow[j].y + SIZE_BITMAP_ARROW_ENEMY_Y - 3) && (spacecraft.y + SIZE_BITMAP_SPACECRAFT_Y) >= enemy[i].arrow[j].y + 3) {
-                scGameSpacecraftHandleDeath();
+                scGameSpacecraftArrowEnemyOverlapY(spacecraft.y, enemy[i].arrow[j].y)) {
+                bool head_on = scGameSpacecraftArrowEnemyOverlapY(last_check_y_enemy, enemy[i].arrow[j].y);
+                if (scGameSpacecraftShotHitX(enemy[i].arrow[j].x, SIZE_BITMAP_ARROW_ENEMY_X, settingsetup.arrow_speed, head_on)) {
+                    scGameSpacecraftHandleDeath();
+                }
             }
         }
     }
+    last_check_y_enemy = spacecraft.y;
 }
 
 static void scGameSpacecraftCheckGameOverByMeteoroid() {
@@ -102,12 +140,15 @@ static void scGameSpacecraftCheckGameOverByMeteoroid() {
 static void scGameSpacecraftCheckGameOverByEnergyBall() {
     for (uint8_t i = 0; i < MAX_NUM_BOSS_SKILL; i++) {
         if (energy_ball[i].visible == WHITE && !is_invincible) {
-            if (energy_ball[i].x + 5 < spacecraft.x + SIZE_BITMAP_SPACECRAFT_X && 
-                spacecraft.y < (energy_ball[i].y + SIZE_BITMAP_ENERGY_BALL_Y - 1) && (spacecraft.y + SIZE_BITMAP_SPACECRAFT_Y - 1) > energy_ball[i].y) {
-                scGameSpacecraftHandleDeath();
+            if (scGameSpacecraftEnergyBallOverlapY(spacecraft.y, energy_ball[i].y)) {
+                bool head_on = scGameSpacecraftEnergyBallOverlapY(last_check_y_energy_ball, energy_ball[i].y);
+                if (scGameSpacecraftShotHitX(energy_ball[i].x, SIZE_BITMAP_ENERGY_BALL_X, SC_ENERGY_BALL_SPEED_X, head_on)) {
+                    scGameSpacecraftHandleDeath();
+                }
             }
         }
     }
+    last_check_y_energy_ball = spacecraft.y;
 }
 
 static void scGameSpacecraftCheckGameOverByLaser() {
@@ -124,13 +165,6 @@ void sc_game_spacecraft_handle(ak_msg_t* msg) {
     case SC_GAME_SPACECRAFT_SETUP: {
         APP_DBG_SIG("SC_GAME_SPACECRAFT_SETUP\n");
         scGameSpacecraftSetup();
-    } break;
-
-    case SC_GAME_SPACECRAFT_UPDATE: {
-        APP_DBG_SIG("SC_GAME_SPACECRAFT_UPDATE\n");
-        spacecraft.y = spacecraft_y;
-        spacecraft.x = spacecraft_x;
-        APP_DBG("spacecraft x: %d, y: %d\n", spacecraft.x, spacecraft.y);
     } break;
 
     case SC_GAME_SPACECRAFT_FORWARD: {
@@ -151,6 +185,11 @@ void sc_game_spacecraft_handle(ak_msg_t* msg) {
     case SC_GAME_SPACECRAFT_DOWN: {
         APP_DBG_SIG("SC_GAME_SPACECRAFT_DOWN\n");
         scGameSpacecraftDown();
+    } break;
+
+    case SC_GAME_SPACECRAFT_HIT_DONE: {
+        APP_DBG_SIG("SC_GAME_SPACECRAFT_HIT_DONE\n");
+        scGameSpacecraftHitDone();
     } break;
 
     case SC_GAME_SPACECRAFT_RESET: {

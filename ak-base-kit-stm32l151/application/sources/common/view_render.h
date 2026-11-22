@@ -27,6 +27,7 @@ extern Adafruit_oled_drv view_render;
 
 extern void view_render_init();
 extern int view_render_screen(view_screen_t* screen);
+extern void view_render_frame_updated();	/* called after each frame is sent to the LCD (weak, default: no-op) */
 extern void view_render_display_on();
 extern void view_render_display_off();
 
